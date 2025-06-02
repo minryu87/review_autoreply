@@ -1,0 +1,12 @@
+[
+  {
+    "active": true,
+    "id": "default1",
+    "name": "실제 병원 답변 반영 스타일"
+  },
+  {
+    "active": false,
+    "id": "default2",
+    "name": "일반적인 산부인과 스타일"
+  }
+]

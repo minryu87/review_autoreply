@@ -1,0 +1,14 @@
+[
+  {
+    "id": "sample_neg_1",
+    "content": "직원이 불친절했고, 대기시간이 너무 길었습니다.",
+    "author": "이영희",
+    "score": 1
+  },
+  {
+    "id": "sample_neg_2",
+    "content": "진료비가 비싸고, 설명이 부족했습니다.",
+    "author": "박민수",
+    "score": 2
+  }
+]

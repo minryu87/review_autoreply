@@ -386,6 +386,32 @@ pre code {
 }
 
 /* Form elements */
+.form-control, .form-range {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  margin-bottom: 4px;
+}
+
+.form-range {
+  accent-color: var(--color-primary);
+  height: 2.5em;
+}
+
+.slider-marks {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 4px;
+}
+
+.slider-marks > div {
+  flex: 1;
+  text-align: center;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  padding: 0 2px;
+}
+
 .form-control {
   display: block;
   width: 100%;

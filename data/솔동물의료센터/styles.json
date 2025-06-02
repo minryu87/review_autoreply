@@ -1,0 +1,24 @@
+[
+  {
+    "active": false,
+    "id": "default1",
+    "name": "실제 병원 답변 반영 스타일"
+  },
+  {
+    "active": false,
+    "id": "default2",
+    "name": "일반적인 동물병원 스타일"
+  },
+  {
+    "active": false,
+    "id": "user_1748841585552",
+    "name": "솔동물_v0.1",
+    "settings": {}
+  },
+  {
+    "active": true,
+    "id": "user_1748844082669",
+    "name": "솔동물_v0.2",
+    "settings": {}
+  }
+]
