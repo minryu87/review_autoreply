@@ -4,3 +4,4 @@ python-dotenv
 gunicorn
 SQLAlchemy
 psycopg2-binary
+pandas

@@ -429,8 +429,6 @@ def migrate_existing_data():
     finally:
         session.close()
 
-# --- 메인 실행부에서 1회만 실행 ---
+# --- 메인 실행부 ---
 if __name__ == "__main__":
-    create_tables()
-    migrate_existing_data()
     app.run(host="0.0.0.0", port=8080, debug=True)
