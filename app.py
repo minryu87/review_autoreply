@@ -7,6 +7,11 @@ from datetime import datetime
 import json
 import time
 import threading
+from sqlalchemy import create_engine, Column, Integer, String, Text, Boolean, BigInteger, DateTime, JSON
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+import pandas as pd
+import glob
 load_dotenv()
 
 app = Flask(__name__, static_folder='static')
@@ -297,5 +302,135 @@ def hospital_reviews():
         reviews = SAMPLE_REVIEWS_POSITIVE if review_type == 'positive' else SAMPLE_REVIEWS_NEGATIVE
         return jsonify({'reviews': reviews, 'error': str(e)})
 
+# --- SQLAlchemy 및 DB 연동 설정 추가 ---
+DB_HOST = "postgresql-iycp1-u45006.vm.elestio.app"
+DB_PORT = 25432
+DB_USER = "postgres"
+DB_PASS = "5Po04bJb-K3oH-qFtcR5CG"
+DB_NAME = "postgres"
+
+SQLALCHEMY_DATABASE_URL = f"postgresql+psycopg2://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+engine = create_engine(SQLALCHEMY_DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
+
+# --- ORM 모델 정의 ---
+class FeedbackHistory(Base):
+    __tablename__ = "feedback_history"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    hospital = Column(String(128))
+    created_at = Column(DateTime)
+    review_id = Column(String(128))
+    review_content = Column(Text)
+    options = Column(JSON)
+    answer_length = Column(String(16))
+    additional_content = Column(Text)
+    feedback = Column(Text)
+    answer = Column(Text)
+
+class Review(Base):
+    __tablename__ = "reviews"
+    id = Column(String(128), primary_key=True)
+    hospital = Column(String(128))
+    content = Column(Text)
+    author = Column(String(128))
+    score = Column(Integer)
+    reply = Column(Text)
+    author_dtm = Column(BigInteger)
+    channel_id = Column(String(32))
+    review_type = Column(String(16))
+
+class Style(Base):
+    __tablename__ = "styles"
+    id = Column(String(64), primary_key=True)
+    hospital = Column(String(128))
+    name = Column(String(128))
+    active = Column(Boolean)
+
+# --- 테이블 생성 ---
+def create_tables():
+    Base.metadata.create_all(bind=engine)
+
+# --- 1회용 마이그레이션 함수 ---
+def migrate_existing_data():
+    session = SessionLocal()
+    try:
+        # 병원 목록
+        hospitals = ["수지미래산부인과", "원진치과의원", "솔동물의료센터"]
+        for hospital in hospitals:
+            data_dir = os.path.join(DATA_DIR, hospital)
+            # 1. feedback_history.csv
+            csv_path = os.path.join(data_dir, "feedback_history.csv")
+            if os.path.exists(csv_path):
+                df = pd.read_csv(csv_path, header=None)
+                for row in df.itertuples(index=False):
+                    session.add(FeedbackHistory(
+                        hospital=hospital,
+                        created_at=row[0],
+                        review_id=row[1],
+                        review_content=row[2],
+                        options=row[3] if row[3] else None,
+                        answer_length=row[4],
+                        additional_content=row[5] if len(row) > 5 else None,
+                        feedback=row[6] if len(row) > 6 else None,
+                        answer=row[7] if len(row) > 7 else None
+                    ))
+            # 2. reviews_positive.json
+            pos_path = os.path.join(data_dir, "reviews_positive.json")
+            if os.path.exists(pos_path):
+                with open(pos_path, "r", encoding="utf-8") as f:
+                    reviews = json.load(f)
+                    for r in reviews:
+                        session.merge(Review(
+                            id=r.get("id"),
+                            hospital=hospital,
+                            content=r.get("content"),
+                            author=r.get("author"),
+                            score=r.get("score"),
+                            reply=r.get("reply"),
+                            author_dtm=r.get("authorDtm"),
+                            channel_id=r.get("channelId"),
+                            review_type="positive"
+                        ))
+            # 3. reviews_negative.json
+            neg_path = os.path.join(data_dir, "reviews_negative.json")
+            if os.path.exists(neg_path):
+                with open(neg_path, "r", encoding="utf-8") as f:
+                    reviews = json.load(f)
+                    for r in reviews:
+                        session.merge(Review(
+                            id=r.get("id"),
+                            hospital=hospital,
+                            content=r.get("content"),
+                            author=r.get("author"),
+                            score=r.get("score"),
+                            reply=None,
+                            author_dtm=None,
+                            channel_id=None,
+                            review_type="negative"
+                        ))
+            # 4. styles.json
+            styles_path = os.path.join(data_dir, "styles.json")
+            if os.path.exists(styles_path):
+                with open(styles_path, "r", encoding="utf-8") as f:
+                    styles = json.load(f)
+                    for s in styles:
+                        session.merge(Style(
+                            id=s.get("id"),
+                            hospital=hospital,
+                            name=s.get("name"),
+                            active=s.get("active", False)
+                        ))
+        session.commit()
+        print("[마이그레이션 완료]")
+    except Exception as e:
+        session.rollback()
+        print("[마이그레이션 오류]", e)
+    finally:
+        session.close()
+
+# --- 메인 실행부에서 1회만 실행 ---
 if __name__ == "__main__":
+    create_tables()
+    migrate_existing_data()
     app.run(host="0.0.0.0", port=8080, debug=True)
