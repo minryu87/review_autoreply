@@ -308,6 +308,27 @@ async function initializeApp() {
   renderSettings();
   renderSampleReviews();
   updateUI();
+
+  // [추가] 스타일 settings 불러와서 슬라이더에 반영
+  if (hospital && styleName) {
+    const stylesRes = await fetch(`/hospital_styles?hospital=${encodeURIComponent(hospital)}`);
+    if (stylesRes.ok) {
+      const data = await stylesRes.json();
+      const style = (data.styles || []).find(s => s.name === styleName);
+      if (style && style.settings) {
+        ['positive', 'negative'].forEach(type => {
+          const settingsData = type === 'positive' ? appData.positive_settings : appData.negative_settings;
+          settingsData.forEach(setting => {
+            const slider = document.getElementById(`${type}_setting_${setting.id}`);
+            if (slider && style.settings[setting.label]) {
+              const idx = setting.options.indexOf(style.settings[setting.label]);
+              if (idx >= 0) slider.value = idx;
+            }
+          });
+        });
+      }
+    }
+  }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
