@@ -94,8 +94,9 @@ function setActiveStyle(id) {
 }
 
 function goToStyleDetail(id) {
-  // 상세 화면으로 이동 (병원 정보도 쿼리로 전달)
-  window.location.href = `/style_detail/${id}?hospital=${encodeURIComponent(selectedHospital)}`;
+  const style = styleList.find(s => s.id === id);
+  const styleName = style ? style.name : '';
+  window.location.href = `/style_detail/${id}?hospital=${encodeURIComponent(selectedHospital)}&styleName=${encodeURIComponent(styleName)}`;
 }
 
 // 리뷰/답변 미리보기
