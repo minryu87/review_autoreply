@@ -10,13 +10,13 @@
     "name": "일반적인 동물병원 스타일"
   },
   {
-    "active": false,
+    "active": true,
     "id": "user_1748841585552",
     "name": "솔동물_v0.1",
     "settings": {}
   },
   {
-    "active": true,
+    "active": false,
     "id": "user_1748844082669",
     "name": "솔동물_v0.2",
     "settings": {}
