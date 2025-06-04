@@ -396,6 +396,16 @@ class Style(Base):
     feedback = Column(Text)
     last_answer = Column(Text)
 
+class GenerationEvent(Base):
+    __tablename__ = "generation_event"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    session_id = Column(String(128))
+    hospital = Column(String(128))
+    page_type = Column(String(32))  # 'main' or 'detail'
+    style_name = Column(String(128))
+    settings = Column(JSON)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
 # --- 테이블 생성 ---
 def create_tables():
     Base.metadata.create_all(bind=engine)
