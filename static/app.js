@@ -334,7 +334,8 @@ function setupEventListeners() {
 
 async function handleSaveStyle() {
   const settings = getSelectedSettings();
-  const hospital = selectedHospital;
+  // 항상 쿼리에서 직접 가져오도록 수정
+  const hospital = getQueryParam('hospital');
   const styleName = getQueryParam('styleName');
   if (!hospital || !styleName) {
     alert('병원명과 스타일명이 필요합니다.');
