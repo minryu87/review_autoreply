@@ -1,13 +1,14 @@
 // 메인화면: 병원 선택, 스타일 목록, 리뷰/답변 미리보기, 스타일 상세 연동
 
-let styleList = [];
+let styleListPositive = [];
+let styleListNegative = [];
 let reviewList = [];
 let activeStyleId = null;
 let currentReviewIdx = 0;
 let hospitalList = ["솔동물의료센터", "원진치과의원", "수지미래산부인과"];
 let selectedHospital = hospitalList[0];
 let isGenerating = false;
-let reviewTypeTab = 'positive'; // 'positive' or 'negative'
+let reviewTypeTab = 'positive';
 let positiveReviews = [];
 let negativeReviews = [];
 
@@ -38,10 +39,27 @@ function renderHospitalSelect() {
   container.appendChild(select);
 }
 
+function renderStyleTabs() {
+  const tabDiv = document.getElementById('reviewTypeTab');
+  tabDiv.innerHTML = '';
+  ['positive', 'negative'].forEach(type => {
+    const btn = document.createElement('button');
+    btn.textContent = type === 'positive' ? '긍정 리뷰 스타일 목록' : '부정 리뷰 스타일 목록';
+    btn.className = 'review-type-tab' + (reviewTypeTab === type ? ' active' : '');
+    btn.onclick = () => {
+      reviewTypeTab = type;
+      renderStyleList();
+    };
+    tabDiv.appendChild(btn);
+  });
+}
+
 function renderStyleList() {
+  renderStyleTabs();
   const listDiv = document.getElementById('styleList');
   listDiv.innerHTML = '';
-  styleList.forEach(style => {
+  const list = reviewTypeTab === 'positive' ? styleListPositive : styleListNegative;
+  list.forEach(style => {
     const item = document.createElement('div');
     item.className = 'style-item' + (style.active ? ' active' : '');
     const name = document.createElement('span');
@@ -56,7 +74,7 @@ function renderStyleList() {
     // 수정 버튼
     const editBtn = document.createElement('button');
     editBtn.textContent = '수정';
-    editBtn.onclick = () => goToStyleDetail(style.id);
+    editBtn.onclick = () => goToStyleDetail(style.id, reviewTypeTab);
     // 이름 수정 버튼
     const renameBtn = document.createElement('button');
     renameBtn.textContent = '이름 수정';
@@ -73,7 +91,11 @@ function renderStyleList() {
     removeBtn.textContent = '제거';
     removeBtn.onclick = async () => {
       if (confirm('정말 이 스타일을 삭제하시겠습니까?')) {
-        styleList = styleList.filter(s => s.id !== style.id);
+        if (reviewTypeTab === 'positive') {
+          styleListPositive = styleListPositive.filter(s => s.id !== style.id);
+        } else {
+          styleListNegative = styleListNegative.filter(s => s.id !== style.id);
+        }
         await saveHospitalStyles();
         renderStyleList();
       }
@@ -92,9 +114,8 @@ async function loadHospitalStyles(hospital) {
   const res = await fetch(`/hospital_styles?hospital=${encodeURIComponent(hospital)}`);
   if (res.ok) {
     const data = await res.json();
-    styleList = data.styles || [];
-    if (styleList.length === 0) styleList = getDefaultStyles();
-    activeStyleId = styleList.find(s=>s.active)?.id || (styleList[0]?.id ?? null);
+    styleListPositive = (data.styles || []).filter(s => s.positive && Object.keys(s.positive).length > 0).map(s => ({...s, ...s.positive, reviewType: 'positive'}));
+    styleListNegative = (data.styles || []).filter(s => s.negative && Object.keys(s.negative).length > 0).map(s => ({...s, ...s.negative, reviewType: 'negative'}));
     renderStyleList();
     renderAnswerPreview();
   }
@@ -104,22 +125,28 @@ async function saveHospitalStyles() {
   await fetch('/hospital_styles', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ hospital: selectedHospital, styles: styleList })
+    body: JSON.stringify({ hospital: selectedHospital, styles: styleListPositive.concat(styleListNegative) })
   });
 }
 
 function setActiveStyle(id) {
-  styleList.forEach(s => s.active = (s.id === id));
-  activeStyleId = id;
+  if (reviewTypeTab === 'positive') {
+    styleListPositive.forEach(s => s.active = (s.id === id));
+    activeStyleId = id;
+  } else {
+    styleListNegative.forEach(s => s.active = (s.id === id));
+    activeStyleId = id;
+  }
   saveHospitalStyles();
   renderStyleList();
   renderAnswerPreview();
 }
 
-function goToStyleDetail(id) {
-  const style = styleList.find(s => s.id === id);
+function goToStyleDetail(id, reviewType) {
+  const list = reviewType === 'positive' ? styleListPositive : styleListNegative;
+  const style = list.find(s => s.id === id);
   const styleName = style ? style.name : '';
-  window.location.href = `/style_detail/${id}?hospital=${encodeURIComponent(selectedHospital)}&styleName=${encodeURIComponent(styleName)}`;
+  window.location.href = `/style_detail/${id}?hospital=${encodeURIComponent(selectedHospital)}&styleName=${encodeURIComponent(styleName)}&reviewType=${reviewType}`;
 }
 
 // 리뷰/답변 미리보기
@@ -151,7 +178,7 @@ function renderAnswerPreview() {
     return;
   }
   // 임시: 스타일명 + 리뷰내용 조합
-  const style = styleList.find(s => s.id === activeStyleId);
+  const style = styleListPositive.find(s => s.id === activeStyleId) || styleListNegative.find(s => s.id === activeStyleId);
   const review = reviewList[currentReviewIdx];
   answerDiv.textContent = `[${style.name}] ${review.content} 에 대한 답변 예시`;
 }
@@ -159,7 +186,7 @@ function renderAnswerPreview() {
 async function generateAnswerWithActiveStyle() {
   if (isGenerating) return;
   const answerDiv = document.getElementById('answerContent');
-  const style = styleList.find(s => s.id === activeStyleId);
+  const style = styleListPositive.find(s => s.id === activeStyleId) || styleListNegative.find(s => s.id === activeStyleId);
   const review = reviewList[currentReviewIdx];
   if (!style || !review) {
     answerDiv.textContent = '답변 미리보기';
@@ -267,7 +294,7 @@ function renderReviewSlider() {
 async function generateAnswerWithActiveStyleForReview(review) {
   if (isGenerating) return;
   const answerDiv = document.getElementById('answerContent');
-  const style = styleList.find(s => s.id === activeStyleId);
+  const style = styleListPositive.find(s => s.id === activeStyleId) || styleListNegative.find(s => s.id === activeStyleId);
   if (!style || !review) {
     answerDiv.textContent = '답변 미리보기';
     return;
@@ -321,7 +348,11 @@ function initializeMain() {
       const name = prompt('새 스타일 이름을 입력하세요');
       if (name) {
         const newId = 'user_' + Date.now();
-        styleList.push({ id: newId, name, active: false, settings: {} });
+        if (reviewTypeTab === 'positive') {
+          styleListPositive.push({ id: newId, name, active: false, settings: {} });
+        } else {
+          styleListNegative.push({ id: newId, name, active: false, settings: {} });
+        }
         await saveHospitalStyles();
         renderStyleList();
       }

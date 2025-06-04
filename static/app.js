@@ -309,6 +309,7 @@ async function initializeApp() {
   // 병원명/스타일명 표시 및 변수 저장
   const hospital = getQueryParam('hospital');
   const styleName = getQueryParam('styleName');
+  const reviewType = getQueryParam('reviewType') || 'positive';
   if (hospital) {
     document.getElementById('selectedHospitalName').textContent = hospital;
     selectedHospital = hospital;
@@ -324,39 +325,35 @@ async function initializeApp() {
   renderSampleReviews();
   updateUI();
 
-  // [추가] 스타일 settings 및 기타 값 불러와서 UI에 반영
+  // 스타일 settings 및 기타 값 불러와서 UI에 반영
   if (hospital && styleName) {
-    const stylesRes = await fetch(`/hospital_styles?hospital=${encodeURIComponent(hospital)}`);
+    const stylesRes = await fetch(`/hospital_styles?hospital=${encodeURIComponent(hospital)}&review_type=${reviewType}`);
     if (stylesRes.ok) {
       const data = await stylesRes.json();
       const style = (data.styles || []).find(s => s.name === styleName);
-      if (style) {
-        ['positive', 'negative'].forEach(type => {
-          const typeObj = style[type] || {};
-          const settingsData = type === 'positive' ? appData.positive_settings : appData.negative_settings;
-          if (typeObj.settings) {
-            settingsData.forEach(setting => {
-              const slider = document.getElementById(`${type}_setting_${setting.id}`);
-              if (slider && typeObj.settings[setting.label]) {
-                const idx = setting.options.indexOf(typeObj.settings[setting.label]);
-                if (idx >= 0) slider.value = idx;
-              }
-            });
-          }
-          if (type === reviewTypeSelect.value) {
-            if (typeObj.answerLength && answerLengthSelect) answerLengthSelect.value = typeObj.answerLength;
-            if (typeObj.additionalContent && additionalContentInput) additionalContentInput.value = typeObj.additionalContent;
-            if (typeObj.feedback && feedbackInput) feedbackInput.value = typeObj.feedback;
-            if (typeObj.lastAnswer && responseTextDiv) responseTextDiv.textContent = typeObj.lastAnswer;
-          }
-        });
+      if (style && style[reviewType]) {
+        const typeObj = style[reviewType];
+        const settingsData = reviewType === 'positive' ? appData.positive_settings : appData.negative_settings;
+        if (typeObj.settings) {
+          settingsData.forEach(setting => {
+            const slider = document.getElementById(`${reviewType}_setting_${setting.id}`);
+            if (slider && typeObj.settings[setting.label]) {
+              const idx = setting.options.indexOf(typeObj.settings[setting.label]);
+              if (idx >= 0) slider.value = idx;
+            }
+          });
+        }
+        if (typeObj.answerLength && answerLengthSelect) answerLengthSelect.value = typeObj.answerLength;
+        if (typeObj.additionalContent && additionalContentInput) additionalContentInput.value = typeObj.additionalContent;
+        if (typeObj.feedback && feedbackInput) feedbackInput.value = typeObj.feedback;
+        if (typeObj.lastAnswer && responseTextDiv) responseTextDiv.textContent = typeObj.lastAnswer;
       }
     }
   }
 
   // 병원명 파라미터가 있으면 loadSampleReviews 호출 추가
   if (hospital) {
-    await loadSampleReviews(hospital);
+    await loadSampleReviews(hospital, reviewType);
   }
 }
 
@@ -383,7 +380,7 @@ function setupEventListeners() {
 }
 
 async function handleSaveStyle() {
-  const reviewType = reviewTypeSelect.value;
+  const reviewType = getQueryParam('reviewType') || 'positive';
   const settings = getSelectedSettings();
   const answerLength = answerLengthSelect.value;
   const additionalContent = additionalContentInput.value;
@@ -406,8 +403,7 @@ async function handleSaveStyle() {
   let found = false;
   for (let s of styles) {
     if (s.name === styleName) {
-      if (!s.positive) s.positive = {};
-      if (!s.negative) s.negative = {};
+      if (!s[reviewType]) s[reviewType] = {};
       s[reviewType] = {
         settings,
         answerLength,
@@ -448,9 +444,9 @@ async function handleSaveStyle() {
   }
 }
 
-async function loadSampleReviews(hospital) {
+async function loadSampleReviews(hospital, reviewType) {
   // 실제 리뷰 불러오기
-  const res = await fetch(`/hospital_reviews?hospital=${encodeURIComponent(hospital)}&type=positive`);
+  const res = await fetch(`/hospital_reviews?hospital=${encodeURIComponent(hospital)}&type=${reviewType}`);
   let reviews = [];
   if (res.ok) {
     const data = await res.json();
