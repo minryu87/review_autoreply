@@ -309,23 +309,31 @@ async function initializeApp() {
   renderSampleReviews();
   updateUI();
 
-  // [추가] 스타일 settings 불러와서 슬라이더에 반영
+  // [추가] 스타일 settings 및 기타 값 불러와서 UI에 반영
   if (hospital && styleName) {
     const stylesRes = await fetch(`/hospital_styles?hospital=${encodeURIComponent(hospital)}`);
     if (stylesRes.ok) {
       const data = await stylesRes.json();
       const style = (data.styles || []).find(s => s.name === styleName);
-      if (style && style.settings) {
-        ['positive', 'negative'].forEach(type => {
-          const settingsData = type === 'positive' ? appData.positive_settings : appData.negative_settings;
-          settingsData.forEach(setting => {
-            const slider = document.getElementById(`${type}_setting_${setting.id}`);
-            if (slider && style.settings[setting.label]) {
-              const idx = setting.options.indexOf(style.settings[setting.label]);
-              if (idx >= 0) slider.value = idx;
-            }
+      if (style) {
+        // 슬라이더 값
+        if (style.settings) {
+          ['positive', 'negative'].forEach(type => {
+            const settingsData = type === 'positive' ? appData.positive_settings : appData.negative_settings;
+            settingsData.forEach(setting => {
+              const slider = document.getElementById(`${type}_setting_${setting.id}`);
+              if (slider && style.settings[setting.label]) {
+                const idx = setting.options.indexOf(style.settings[setting.label]);
+                if (idx >= 0) slider.value = idx;
+              }
+            });
           });
-        });
+        }
+        // 답변 길이, 추가 내용, 피드백, 생성 답변
+        if (style.answerLength && answerLengthSelect) answerLengthSelect.value = style.answerLength;
+        if (style.additionalContent && additionalContentInput) additionalContentInput.value = style.additionalContent;
+        if (style.feedback && feedbackInput) feedbackInput.value = style.feedback;
+        if (style.lastAnswer && responseTextDiv) responseTextDiv.textContent = style.lastAnswer;
       }
     }
   }
@@ -371,17 +379,35 @@ async function handleSaveStyle() {
       styles = data.styles || [];
     }
   } catch (e) {}
+  // 입력값 추가
+  const answerLength = answerLengthSelect.value;
+  const additionalContent = additionalContentInput.value;
+  const feedback = feedbackInput.value;
+  const lastAnswer = responseTextDiv.textContent;
+
   // 현재 스타일이 있으면 갱신, 없으면 추가
   let found = false;
   for (let s of styles) {
     if (s.name === styleName) {
       s.settings = settings;
+      s.answerLength = answerLength;
+      s.additionalContent = additionalContent;
+      s.feedback = feedback;
+      s.lastAnswer = lastAnswer;
       found = true;
       break;
     }
   }
   if (!found) {
-    styles.push({ id: styleName, name: styleName, settings: settings, active: true });
+    styles.push({
+      id: styleName,
+      name: styleName,
+      settings,
+      answerLength,
+      additionalContent,
+      feedback,
+      lastAnswer
+    });
   }
   // 서버에 저장
   const res2 = await fetch('/hospital_styles', {
