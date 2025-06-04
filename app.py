@@ -240,22 +240,66 @@ def generate():
 
 @app.route('/hospital_styles', methods=['GET', 'POST'])
 def hospital_styles():
-    hospital = request.args.get('hospital') if request.method == 'GET' else request.json.get('hospital')
-    if not hospital or hospital not in HOSPITALS:
-        return jsonify({'error': '병원명이 올바르지 않습니다.'}), 400
-    path = get_hospital_styles_path(hospital)
-    if request.method == 'GET':
-        if os.path.exists(path):
-            with open(path, 'r', encoding='utf-8') as f:
-                styles = json.load(f)
-        else:
-            styles = []
-        return jsonify({'styles': styles})
-    else:  # POST
-        styles = request.json.get('styles', [])
-        with open(path, 'w', encoding='utf-8') as f:
-            json.dump(styles, f, ensure_ascii=False, indent=2)
-        return jsonify({'result': 'ok'})
+    session = SessionLocal()
+    try:
+        hospital = request.args.get('hospital') if request.method == 'GET' else request.json.get('hospital')
+        if not hospital or hospital not in HOSPITALS:
+            return jsonify({'error': '병원명이 올바르지 않습니다.'}), 400
+        if request.method == 'GET':
+            styles = session.query(Style).filter_by(hospital=hospital).all()
+            # SQLAlchemy 객체를 dict로 변환
+            style_dicts = []
+            for s in styles:
+                style_dicts.append({
+                    'id': s.id,
+                    'name': s.name,
+                    'active': s.active,
+                    'settings': s.settings or {},
+                    'answerLength': s.answer_length or 'medium',
+                    'additionalContent': s.additional_content or '',
+                    'feedback': s.feedback or '',
+                    'lastAnswer': s.last_answer or ''
+                })
+            return jsonify({'styles': style_dicts})
+        else:  # POST
+            styles = request.json.get('styles', [])
+            # 기존 hospital의 스타일 모두 비활성화(초기화)
+            db_styles = {s.id: s for s in session.query(Style).filter_by(hospital=hospital).all()}
+            for style in styles:
+                s = db_styles.get(style.get('id'))
+                if s:
+                    s.name = style.get('name')
+                    s.active = style.get('active', False)
+                    s.settings = style.get('settings', {})
+                    s.answer_length = style.get('answerLength', 'medium')
+                    s.additional_content = style.get('additionalContent', '')
+                    s.feedback = style.get('feedback', '')
+                    s.last_answer = style.get('lastAnswer', '')
+                else:
+                    s = Style(
+                        id=style.get('id'),
+                        hospital=hospital,
+                        name=style.get('name'),
+                        active=style.get('active', False),
+                        settings=style.get('settings', {}),
+                        answer_length=style.get('answerLength', 'medium'),
+                        additional_content=style.get('additionalContent', ''),
+                        feedback=style.get('feedback', ''),
+                        last_answer=style.get('lastAnswer', '')
+                    )
+                    session.add(s)
+            # DB에 없는 스타일은 삭제(동기화)
+            style_ids = set(s['id'] for s in styles)
+            for db_id, db_style in db_styles.items():
+                if db_id not in style_ids:
+                    session.delete(db_style)
+            session.commit()
+            return jsonify({'result': 'ok'})
+    except Exception as e:
+        session.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        session.close()
 
 @app.route('/hospital_reviews')
 def hospital_reviews():
@@ -346,6 +390,11 @@ class Style(Base):
     hospital = Column(String(128))
     name = Column(String(128))
     active = Column(Boolean)
+    settings = Column(JSON)
+    answer_length = Column(String(16))
+    additional_content = Column(Text)
+    feedback = Column(Text)
+    last_answer = Column(Text)
 
 # --- 테이블 생성 ---
 def create_tables():
@@ -419,7 +468,12 @@ def migrate_existing_data():
                             id=s.get("id"),
                             hospital=hospital,
                             name=s.get("name"),
-                            active=s.get("active", False)
+                            active=s.get("active", False),
+                            settings=s.get("settings", {}),
+                            answer_length=s.get("answer_length", "medium"),
+                            additional_content=s.get("additional_content", ""),
+                            feedback=s.get("feedback", ""),
+                            last_answer=s.get("last_answer", "")
                         ))
         session.commit()
         print("[마이그레이션 완료]")
@@ -431,4 +485,5 @@ def migrate_existing_data():
 
 # --- 메인 실행부 ---
 if __name__ == "__main__":
+    create_tables()
     app.run(host="0.0.0.0", port=8080, debug=True)
