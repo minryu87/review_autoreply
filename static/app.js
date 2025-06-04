@@ -325,4 +325,51 @@ function setupEventListeners() {
   sampleReviewSelect.addEventListener('change', handleSampleReviewChange);
   generateBtn.addEventListener('click', () => handleGenerateResponse(false));
   regenerateBtn.addEventListener('click', () => handleGenerateResponse(true));
+  // 저장 버튼 이벤트 리스너 추가
+  const saveStyleBtn = document.getElementById('saveStyleBtn');
+  if (saveStyleBtn) {
+    saveStyleBtn.addEventListener('click', handleSaveStyle);
+  }
+}
+
+async function handleSaveStyle() {
+  const settings = getSelectedSettings();
+  const hospital = selectedHospital;
+  const styleName = getQueryParam('styleName');
+  if (!hospital || !styleName) {
+    alert('병원명과 스타일명이 필요합니다.');
+    return;
+  }
+  // 기존 스타일 목록 불러오기
+  let styles = [];
+  try {
+    const res = await fetch(`/hospital_styles?hospital=${encodeURIComponent(hospital)}`);
+    if (res.ok) {
+      const data = await res.json();
+      styles = data.styles || [];
+    }
+  } catch (e) {}
+  // 현재 스타일이 있으면 갱신, 없으면 추가
+  let found = false;
+  for (let s of styles) {
+    if (s.name === styleName) {
+      s.settings = settings;
+      found = true;
+      break;
+    }
+  }
+  if (!found) {
+    styles.push({ id: styleName, name: styleName, settings: settings, active: true });
+  }
+  // 서버에 저장
+  const res2 = await fetch('/hospital_styles', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ hospital, styles })
+  });
+  if (res2.ok) {
+    alert('스타일이 저장되었습니다.');
+  } else {
+    alert('저장에 실패했습니다.');
+  }
 }
