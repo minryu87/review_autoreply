@@ -260,10 +260,10 @@ async function generateAnswerWithActiveStyleForReview(review) {
         settings: style.settings || {},
         review_type: reviewTypeTab,
         hospital: selectedHospital,
-        answer_length: 'medium',
-        additional_content: '',
-        feedback: '',
-        last_answer: '',
+        answer_length: style.answerLength || 'medium',
+        additional_content: style.additionalContent || '',
+        feedback: style.feedback || '',
+        last_answer: style.lastAnswer || '',
         review_id: review.id
       })
     });
