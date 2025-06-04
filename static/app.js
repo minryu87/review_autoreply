@@ -5,6 +5,7 @@ let answerLengthSelect, additionalContentInput, feedbackInput, regenerateBtn;
 let lastGeneratedAnswer = '';
 let lastReviewId = '';
 let selectedHospital = '';
+let sampleReviews = [];
 
 // 슬라이더 생성 함수
 function createSliderElement(setting, type) {
@@ -139,7 +140,8 @@ function handleSampleReviewChange() {
     reviewTextDiv.textContent = '리뷰를 선택해주세요.';
     return;
   }
-  const selectedReview = appData.sample_reviews.find(review => review.id === selectedReviewId);
+  // sampleReviews에서 찾기
+  const selectedReview = sampleReviews.find(review => review.id === selectedReviewId);
   if (selectedReview) {
     reviewTextDiv.textContent = selectedReview.content;
   } else {
@@ -168,13 +170,14 @@ async function handleGenerateResponse(isRegenerate = false) {
     alert('먼저 리뷰를 선택해주세요.');
     return;
   }
-  const selectedReview = appData.sample_reviews.find(review => review.id === selectedReviewId);
+  // sampleReviews에서 찾기
+  const selectedReview = sampleReviews.find(review => review.id === selectedReviewId);
   if (!selectedReview) {
     alert('선택된 리뷰를 찾을 수 없습니다.');
     return;
   }
   const reviewType = reviewTypeSelect.value;
-  if (selectedReview.type !== reviewType) {
+  if (selectedReview.type && selectedReview.type !== reviewType) {
     alert('선택된 리뷰 타입과 설정 타입이 일치하지 않습니다.');
     return;
   }
@@ -435,7 +438,7 @@ async function loadSampleReviews(hospital) {
     const data = await res.json();
     reviews = data.reviews || [];
   }
-  // 기존 샘플 리뷰와 합치거나, 실제 리뷰만 사용
+  sampleReviews = reviews; // 전역에 저장
   const sampleReviewSelect = document.getElementById('sampleReview');
   sampleReviewSelect.innerHTML = '';
   reviews.forEach(r => {
