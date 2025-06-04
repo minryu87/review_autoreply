@@ -88,13 +88,12 @@
                     <label class="form-label">피드백</label>
                     <input type="text" id="feedbackInput" class="form-control" placeholder="답변에 반영할 피드백을 입력하세요" />
                 </div>
-                <button id="regenerateBtn" class="btn btn--secondary btn--full-width">
-                    피드백 반영하여 다시 생성
-                </button>
+                <div class="feedback-btn-group" style="display:flex; justify-content: flex-end; gap: 12px; margin-top: 12px;">
+                    <button id="regenerateBtn" class="btn btn-secondary" type="button">피드백 반영하여 다시 생성</button>
+                    <button id="saveStyleBtn" class="btn btn-primary" type="button">저장하기</button>
+                </div>
             </div>
         </div>
-        <!-- 저장 버튼 -->
-        <button id="saveStyleBtn" class="btn btn--primary btn--full-width" style="margin-top:16px;">저장</button>
         <!-- 보안 안내 -->
         <div class="security-notice">
             <p><strong>보안 안내:</strong> 현재 API 키가 클라이언트 사이드에서 사용되고 있습니다. 실제 운영 환경에서는 보안을 위해 서버 사이드에서 API를 처리하는 것을 권장합니다.</p>

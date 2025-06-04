@@ -211,7 +211,7 @@ async function handleGenerateResponse(isRegenerate = false) {
         hospital: hospital,
         answer_length: answerLength,
         additional_content: additionalContent,
-        feedback: isRegenerate ? feedback : feedback, // 항상 feedback 전달
+        feedback: isRegenerate ? feedback : feedback,
         last_answer: isRegenerate ? lastGeneratedAnswer : '',
         review_id: selectedReview.id
       })
@@ -221,7 +221,19 @@ async function handleGenerateResponse(isRegenerate = false) {
       responseTextDiv.textContent = data.result;
       lastGeneratedAnswer = data.result;
       lastReviewId = selectedReview.id;
-      // 병원별 옵션/피드백/답변 저장 필요시 추가
+      // [추가] generation_event 기록
+      await fetch('/log_generation_event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          session_id: window.sessionStorage.getItem('session_id') || '',
+          hospital: hospital,
+          page_type: 'detail',
+          style_name: styleName,
+          settings: settings,
+          review_type: reviewType
+        })
+      });
     } else {
       responseTextDiv.textContent = data.error || '답변 생성 중 오류가 발생했습니다.';
     }
@@ -319,24 +331,25 @@ async function initializeApp() {
       const data = await stylesRes.json();
       const style = (data.styles || []).find(s => s.name === styleName);
       if (style) {
-        // 슬라이더 값
-        if (style.settings) {
-          ['positive', 'negative'].forEach(type => {
-            const settingsData = type === 'positive' ? appData.positive_settings : appData.negative_settings;
+        ['positive', 'negative'].forEach(type => {
+          const typeObj = style[type] || {};
+          const settingsData = type === 'positive' ? appData.positive_settings : appData.negative_settings;
+          if (typeObj.settings) {
             settingsData.forEach(setting => {
               const slider = document.getElementById(`${type}_setting_${setting.id}`);
-              if (slider && style.settings[setting.label]) {
-                const idx = setting.options.indexOf(style.settings[setting.label]);
+              if (slider && typeObj.settings[setting.label]) {
+                const idx = setting.options.indexOf(typeObj.settings[setting.label]);
                 if (idx >= 0) slider.value = idx;
               }
             });
-          });
-        }
-        // 답변 길이, 추가 내용, 피드백, 생성 답변
-        if (style.answerLength && answerLengthSelect) answerLengthSelect.value = style.answerLength;
-        if (style.additionalContent && additionalContentInput) additionalContentInput.value = style.additionalContent;
-        if (style.feedback && feedbackInput) feedbackInput.value = style.feedback;
-        if (style.lastAnswer && responseTextDiv) responseTextDiv.textContent = style.lastAnswer;
+          }
+          if (type === reviewTypeSelect.value) {
+            if (typeObj.answerLength && answerLengthSelect) answerLengthSelect.value = typeObj.answerLength;
+            if (typeObj.additionalContent && additionalContentInput) additionalContentInput.value = typeObj.additionalContent;
+            if (typeObj.feedback && feedbackInput) feedbackInput.value = typeObj.feedback;
+            if (typeObj.lastAnswer && responseTextDiv) responseTextDiv.textContent = typeObj.lastAnswer;
+          }
+        });
       }
     }
   }
@@ -370,15 +383,18 @@ function setupEventListeners() {
 }
 
 async function handleSaveStyle() {
+  const reviewType = reviewTypeSelect.value;
   const settings = getSelectedSettings();
-  // 항상 쿼리에서 직접 가져오도록 수정
+  const answerLength = answerLengthSelect.value;
+  const additionalContent = additionalContentInput.value;
+  const feedback = feedbackInput.value;
+  const lastAnswer = responseTextDiv.textContent;
   const hospital = getQueryParam('hospital');
   const styleName = getQueryParam('styleName');
   if (!hospital || !styleName) {
     alert('병원명과 스타일명이 필요합니다.');
     return;
   }
-  // 기존 스타일 목록 불러오기
   let styles = [];
   try {
     const res = await fetch(`/hospital_styles?hospital=${encodeURIComponent(hospital)}`);
@@ -387,37 +403,39 @@ async function handleSaveStyle() {
       styles = data.styles || [];
     }
   } catch (e) {}
-  // 입력값 추가
-  const answerLength = answerLengthSelect.value;
-  const additionalContent = additionalContentInput.value;
-  const feedback = feedbackInput.value;
-  const lastAnswer = responseTextDiv.textContent;
-
-  // 현재 스타일이 있으면 갱신, 없으면 추가
   let found = false;
   for (let s of styles) {
     if (s.name === styleName) {
-      s.settings = settings;
-      s.answerLength = answerLength;
-      s.additionalContent = additionalContent;
-      s.feedback = feedback;
-      s.lastAnswer = lastAnswer;
+      if (!s.positive) s.positive = {};
+      if (!s.negative) s.negative = {};
+      s[reviewType] = {
+        settings,
+        answerLength,
+        additionalContent,
+        feedback,
+        lastAnswer
+      };
       found = true;
       break;
     }
   }
   if (!found) {
-    styles.push({
+    const newStyle = {
       id: styleName,
       name: styleName,
+      active: false,
+      positive: {},
+      negative: {}
+    };
+    newStyle[reviewType] = {
       settings,
       answerLength,
       additionalContent,
       feedback,
       lastAnswer
-    });
+    };
+    styles.push(newStyle);
   }
-  // 서버에 저장
   const res2 = await fetch('/hospital_styles', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

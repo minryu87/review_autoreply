@@ -243,55 +243,71 @@ def hospital_styles():
     session = SessionLocal()
     try:
         hospital = request.args.get('hospital') if request.method == 'GET' else request.json.get('hospital')
+        review_type = request.args.get('review_type') if request.method == 'GET' else None
         if not hospital or hospital not in HOSPITALS:
             return jsonify({'error': '병원명이 올바르지 않습니다.'}), 400
         if request.method == 'GET':
-            styles = session.query(Style).filter_by(hospital=hospital).all()
-            # SQLAlchemy 객체를 dict로 변환
-            style_dicts = []
+            q = session.query(Style).filter_by(hospital=hospital)
+            if review_type:
+                q = q.filter_by(review_type=review_type)
+            styles = q.all()
+            # id+name 기준으로 positive/negative를 합쳐서 반환
+            style_map = {}
             for s in styles:
-                style_dicts.append({
-                    'id': s.id,
-                    'name': s.name,
-                    'active': s.active,
+                key = (s.id, s.name)
+                if key not in style_map:
+                    style_map[key] = {
+                        'id': s.id,
+                        'name': s.name,
+                        'active': s.active,
+                        'positive': {},
+                        'negative': {}
+                    }
+                style_map[key][s.review_type or 'positive'] = {
                     'settings': s.settings or {},
                     'answerLength': s.answer_length or 'medium',
                     'additionalContent': s.additional_content or '',
                     'feedback': s.feedback or '',
                     'lastAnswer': s.last_answer or ''
-                })
-            return jsonify({'styles': style_dicts})
+                }
+            return jsonify({'styles': list(style_map.values())})
         else:  # POST
             styles = request.json.get('styles', [])
-            # 기존 hospital의 스타일 모두 비활성화(초기화)
-            db_styles = {s.id: s for s in session.query(Style).filter_by(hospital=hospital).all()}
+            # 기존 hospital의 스타일 모두 불러오기
+            db_styles = {(s.id, s.name, s.review_type): s for s in session.query(Style).filter_by(hospital=hospital).all()}
+            new_keys = set()
             for style in styles:
-                s = db_styles.get(style.get('id'))
-                if s:
-                    s.name = style.get('name')
-                    s.active = style.get('active', False)
-                    s.settings = style.get('settings', {})
-                    s.answer_length = style.get('answerLength', 'medium')
-                    s.additional_content = style.get('additionalContent', '')
-                    s.feedback = style.get('feedback', '')
-                    s.last_answer = style.get('lastAnswer', '')
-                else:
-                    s = Style(
-                        id=style.get('id'),
-                        hospital=hospital,
-                        name=style.get('name'),
-                        active=style.get('active', False),
-                        settings=style.get('settings', {}),
-                        answer_length=style.get('answerLength', 'medium'),
-                        additional_content=style.get('additionalContent', ''),
-                        feedback=style.get('feedback', ''),
-                        last_answer=style.get('lastAnswer', '')
-                    )
-                    session.add(s)
+                for review_type in ['positive', 'negative']:
+                    type_obj = style.get(review_type)
+                    if not type_obj:
+                        continue
+                    key = (style['id'], style['name'], review_type)
+                    new_keys.add(key)
+                    s = db_styles.get(key)
+                    if s:
+                        s.active = style.get('active', False)
+                        s.settings = type_obj.get('settings', {})
+                        s.answer_length = type_obj.get('answerLength', 'medium')
+                        s.additional_content = type_obj.get('additionalContent', '')
+                        s.feedback = type_obj.get('feedback', '')
+                        s.last_answer = type_obj.get('lastAnswer', '')
+                    else:
+                        s = Style(
+                            id=style['id'],
+                            hospital=hospital,
+                            name=style['name'],
+                            review_type=review_type,
+                            active=style.get('active', False),
+                            settings=type_obj.get('settings', {}),
+                            answer_length=type_obj.get('answerLength', 'medium'),
+                            additional_content=type_obj.get('additionalContent', ''),
+                            feedback=type_obj.get('feedback', ''),
+                            last_answer=type_obj.get('lastAnswer', '')
+                        )
+                        session.add(s)
             # DB에 없는 스타일은 삭제(동기화)
-            style_ids = set(s['id'] for s in styles)
-            for db_id, db_style in db_styles.items():
-                if db_id not in style_ids:
+            for key, db_style in db_styles.items():
+                if key not in new_keys:
                     session.delete(db_style)
             session.commit()
             return jsonify({'result': 'ok'})
@@ -346,6 +362,29 @@ def hospital_reviews():
         reviews = SAMPLE_REVIEWS_POSITIVE if review_type == 'positive' else SAMPLE_REVIEWS_NEGATIVE
         return jsonify({'reviews': reviews, 'error': str(e)})
 
+@app.route('/log_generation_event', methods=['POST'])
+def log_generation_event():
+    session = SessionLocal()
+    try:
+        data = request.json
+        event = GenerationEvent(
+            session_id=data.get('session_id', ''),
+            hospital=data.get('hospital', ''),
+            page_type=data.get('page_type', ''),
+            style_name=data.get('style_name', ''),
+            settings=data.get('settings', {}),
+            created_at=datetime.utcnow(),
+            review_type=data.get('review_type', '')
+        )
+        session.add(event)
+        session.commit()
+        return jsonify({'result': 'ok'})
+    except Exception as e:
+        session.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        session.close()
+
 # --- SQLAlchemy 및 DB 연동 설정 추가 ---
 DB_HOST = "postgresql-iycp1-u45006.vm.elestio.app"
 DB_PORT = 25432
@@ -371,6 +410,7 @@ class FeedbackHistory(Base):
     additional_content = Column(Text)
     feedback = Column(Text)
     answer = Column(Text)
+    review_type = Column(String(16))  # 'positive' or 'negative'
 
 class Review(Base):
     __tablename__ = "reviews"
@@ -389,6 +429,7 @@ class Style(Base):
     id = Column(String(64), primary_key=True)
     hospital = Column(String(128))
     name = Column(String(128))
+    review_type = Column(String(16))  # 'positive' or 'negative'
     active = Column(Boolean)
     settings = Column(JSON)
     answer_length = Column(String(16))
@@ -405,6 +446,7 @@ class GenerationEvent(Base):
     style_name = Column(String(128))
     settings = Column(JSON)
     created_at = Column(DateTime, default=datetime.utcnow)
+    review_type = Column(String(16))  # 'positive' or 'negative'
 
 # --- 테이블 생성 ---
 def create_tables():
