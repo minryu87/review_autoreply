@@ -57,8 +57,31 @@ function renderStyleList() {
     const editBtn = document.createElement('button');
     editBtn.textContent = '수정';
     editBtn.onclick = () => goToStyleDetail(style.id);
+    // 이름 수정 버튼
+    const renameBtn = document.createElement('button');
+    renameBtn.textContent = '이름 수정';
+    renameBtn.onclick = async () => {
+      const newName = prompt('새 스타일 이름을 입력하세요', style.name);
+      if (newName && newName !== style.name) {
+        style.name = newName;
+        await saveHospitalStyles();
+        renderStyleList();
+      }
+    };
+    // 제거 버튼
+    const removeBtn = document.createElement('button');
+    removeBtn.textContent = '제거';
+    removeBtn.onclick = async () => {
+      if (confirm('정말 이 스타일을 삭제하시겠습니까?')) {
+        styleList = styleList.filter(s => s.id !== style.id);
+        await saveHospitalStyles();
+        renderStyleList();
+      }
+    };
     actions.appendChild(toggleBtn);
     actions.appendChild(editBtn);
+    actions.appendChild(renameBtn);
+    actions.appendChild(removeBtn);
     item.appendChild(name);
     item.appendChild(actions);
     listDiv.appendChild(item);

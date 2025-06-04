@@ -337,6 +337,11 @@ async function initializeApp() {
       }
     }
   }
+
+  // 병원명 파라미터가 있으면 loadSampleReviews 호출 추가
+  if (hospital) {
+    await loadSampleReviews(hospital);
+  }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -420,4 +425,23 @@ async function handleSaveStyle() {
   } else {
     alert('저장에 실패했습니다.');
   }
+}
+
+async function loadSampleReviews(hospital) {
+  // 실제 리뷰 불러오기
+  const res = await fetch(`/hospital_reviews?hospital=${encodeURIComponent(hospital)}&type=positive`);
+  let reviews = [];
+  if (res.ok) {
+    const data = await res.json();
+    reviews = data.reviews || [];
+  }
+  // 기존 샘플 리뷰와 합치거나, 실제 리뷰만 사용
+  const sampleReviewSelect = document.getElementById('sampleReview');
+  sampleReviewSelect.innerHTML = '';
+  reviews.forEach(r => {
+    const opt = document.createElement('option');
+    opt.value = r.id;
+    opt.textContent = r.content.slice(0, 40) + (r.content.length > 40 ? '...' : '');
+    sampleReviewSelect.appendChild(opt);
+  });
 }
