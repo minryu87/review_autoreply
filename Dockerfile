@@ -14,4 +14,4 @@ RUN pip install --upgrade pip && pip install -r requirements.txt
 # COPY .env /app/.env
 
 # gunicorn으로 Flask 앱 실행
-CMD ["gunicorn", "-b", "0.0.0.0:8080", "app:app"] 
+CMD ["gunicorn", "-b", "0.0.0.0:3000", "app:app"] 
