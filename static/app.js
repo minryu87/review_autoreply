@@ -8,6 +8,9 @@ let selectedHospital = '';
 let sampleReviews = [];
 let styleName = '';
 
+// 리뷰 타입 표시용 변수 추가
+let reviewTypeDisplay;
+
 // 슬라이더 생성 함수
 function createSliderElement(setting, type) {
   const div = document.createElement('div');
@@ -294,7 +297,8 @@ function getQueryParam(name) {
 
 // 초기화
 async function initializeApp() {
-  reviewTypeSelect = document.getElementById('reviewType');
+  reviewTypeSelect = null; // 드롭다운 제거
+  reviewTypeDisplay = document.getElementById('reviewTypeDisplay');
   positiveSettingsDiv = document.getElementById('positiveSettings');
   negativeSettingsDiv = document.getElementById('negativeSettings');
   sampleReviewSelect = document.getElementById('sampleReview');
@@ -316,6 +320,7 @@ async function initializeApp() {
     selectedHospital = hospital;
   }
   if (styleName) document.getElementById('selectedStyleName').textContent = styleName;
+  if (reviewTypeDisplay) reviewTypeDisplay.textContent = reviewType === 'positive' ? '긍정 리뷰' : '부정 리뷰';
 
   // 서버에서 설정 데이터 받아오기
   const res = await fetch('/settings');
@@ -445,6 +450,18 @@ async function handleSaveStyle() {
   }
 }
 
+// 샘플 리뷰가 없는 경우 가상의 리뷰를 제공
+const DEFAULT_SAMPLE_REVIEWS = {
+  positive: [
+    { id: 'default_pos_1', type: 'positive', content: '의사 선생님이 친절하게 설명해주셔서 좋았습니다. 병원이 깨끗해서 만족합니다.' },
+    { id: 'default_pos_2', type: 'positive', content: '진료를 받기까지 대기시간이 짧았고, 의료진 분들이 모두 전문적이었습니다.' }
+  ],
+  negative: [
+    { id: 'default_neg_1', type: 'negative', content: '직원이 불친절했고, 대기시간이 너무 길었습니다.' },
+    { id: 'default_neg_2', type: 'negative', content: '진료비가 비싸고, 설명이 부족했습니다.' }
+  ]
+};
+
 async function loadSampleReviews(hospital, reviewType) {
   // 실제 리뷰 불러오기
   const res = await fetch(`/hospital_reviews?hospital=${encodeURIComponent(hospital)}&type=${reviewType}`);
@@ -452,6 +469,10 @@ async function loadSampleReviews(hospital, reviewType) {
   if (res.ok) {
     const data = await res.json();
     reviews = data.reviews || [];
+  }
+  // 샘플 리뷰가 없으면 가상의 리뷰 제공
+  if (!reviews || reviews.length === 0) {
+    reviews = DEFAULT_SAMPLE_REVIEWS[reviewType] || [];
   }
   sampleReviews = reviews; // 전역에 저장
   const sampleReviewSelect = document.getElementById('sampleReview');
