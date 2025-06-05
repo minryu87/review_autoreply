@@ -66,13 +66,26 @@ function renderStyleList(type) {
     editBtn.textContent = '수정';
     editBtn.onclick = (e) => {
       e.stopPropagation();
-      // 상세 편집 화면으로 이동
       const styleName = encodeURIComponent(style.name);
       const reviewType = type;
       const hospital = encodeURIComponent(selectedHospital);
       window.location.href = `/style_detail/${style.id}?hospital=${hospital}&styleName=${styleName}&reviewType=${reviewType}`;
     };
     item.appendChild(editBtn);
+
+    // '이름 수정' 버튼
+    const renameBtn = document.createElement('button');
+    renameBtn.textContent = '이름 수정';
+    renameBtn.onclick = async (e) => {
+      e.stopPropagation();
+      const newName = prompt('새 스타일 이름을 입력하세요', style.name);
+      if (newName && newName !== style.name) {
+        style.name = newName;
+        await saveAllStyles();
+        renderStyleList(type);
+      }
+    };
+    item.appendChild(renameBtn);
 
     // 삭제 버튼
     const removeBtn = document.createElement('button');
