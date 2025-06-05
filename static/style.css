@@ -700,10 +700,81 @@ select.form-control {
 
 /* 메인 레이아웃 */
 .main-layout {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-32);
-  min-height: 600px;
+  display: flex;
+  flex-direction: row;
+  min-height: 100vh;
+  background: #fafbfc;
+}
+
+.main-left-panel, .main-right-panel {
+  flex: 1 1 0;
+  min-width: 400px;
+  padding: 32px 24px;
+  box-sizing: border-box;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.main-left-panel {
+  border-right: 1px solid #e0e0e0;
+}
+
+.hospital-select-area {
+  margin-bottom: 24px;
+}
+
+.style-section {
+  margin-bottom: 24px;
+}
+
+.style-list {
+  margin-bottom: 12px;
+}
+
+.add-style-btn {
+  width: 100%;
+  padding: 8px 0;
+  background: #1976d2;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  font-size: 15px;
+  cursor: pointer;
+  margin-bottom: 8px;
+}
+
+.add-style-btn:hover {
+  background: #1251a3;
+}
+
+.review-section {
+  margin-bottom: 24px;
+}
+
+.review-slider {
+  margin: 12px 0;
+}
+
+.answer-preview {
+  background: #f7f7fa;
+  border-radius: 8px;
+  padding: 16px;
+  min-height: 80px;
+  margin-top: 8px;
+  font-size: 15px;
+  color: #222;
+}
+
+@media (max-width: 1024px) {
+  .main-layout {
+    flex-direction: column;
+  }
+  .main-left-panel, .main-right-panel {
+    min-width: 0;
+    padding: 16px 8px;
+  }
 }
 
 /* 설정 패널 */

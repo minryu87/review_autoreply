@@ -7,99 +7,39 @@
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-    <div class="container" style="display:flex; flex-direction:column; align-items:center; min-height:100vh;">
-        <header class="header">
-            <h1>병원 리뷰 자동 답변 생성 서비스</h1>
-            <p class="header-subtitle">AI를 활용한 전문적인 리뷰 답변 생성</p>
-        </header>
-        <div class="detail-layout">
-            <div class="detail-settings-panel">
-                <div class="settings-panel" style="max-width:600px; width:100%; margin:32px 0;">
-                    <!-- 상단: 병원명/스타일명 표시 -->
-                    <div style="margin-bottom: 16px;">
-                        <span id="selectedHospitalName" style="font-weight:600;font-size:18px;"></span>
-                        <span id="selectedStyleName" style="font-weight:400;font-size:16px;color:#888;margin-left:8px;"></span>
-                    </div>
-                    <h2>답변 설정</h2>
-                    <!-- 리뷰 타입 선택 -->
-                    <div class="form-group">
-                        <label class="form-label">리뷰 타입</label>
-                        <select id="reviewType" class="form-control">
-                            <option value="positive">긍정 리뷰</option>
-                            <option value="negative">부정 리뷰</option>
-                        </select>
-                    </div>
-                    <!-- 답변 길이 선택 -->
-                    <div class="form-group">
-                        <label class="form-label">답변 길이</label>
-                        <select id="answerLength" class="form-control">
-                            <option value="short">짧게 (1문장)</option>
-                            <option value="medium">중간 (2~3문장)</option>
-                            <option value="long">길게 (4~5문장)</option>
-                        </select>
-                    </div>
-                    <!-- 추가하고 싶은 내용 입력 -->
-                    <div class="form-group">
-                        <label class="form-label">답변에 추가하고 싶은 내용</label>
-                        <input type="text" id="additionalContent" class="form-control" placeholder="예: 항상 건강하세요! 등" />
-                    </div>
-                    <!-- 긍정 리뷰 설정 -->
-                    <div id="positiveSettings" class="settings-section">
-                        <h3>긍정 리뷰 답변 설정</h3>
-                        <div class="settings-grid">
-                            <!-- 동적으로 생성될 설정 항목들 -->
-                        </div>
-                    </div>
-                    <!-- 부정 리뷰 설정 -->
-                    <div id="negativeSettings" class="settings-section hidden">
-                        <h3>부정 리뷰 답변 설정</h3>
-                        <div class="settings-grid">
-                            <!-- 동적으로 생성될 설정 항목들 -->
-                        </div>
-                    </div>
-                </div>
+    <div class="main-layout">
+        <div class="main-left-panel">
+            <div class="hospital-select-area" id="hospitalSelectArea"></div>
+            <div class="style-section">
+                <h2>긍정 리뷰 스타일 목록</h2>
+                <div class="style-list" id="positiveStyleList"></div>
+                <button class="add-style-btn" id="addPositiveStyleBtn">+ 신규 긍정 스타일 생성</button>
             </div>
-            <div class="detail-answer-panel">
-                <!-- 샘플 리뷰 선택~답변 생성~결과 부분을 이 영역으로 이동 -->
-                <div class="form-group">
-                    <label class="form-label">샘플 리뷰 선택</label>
-                    <select id="sampleReview" class="form-control">
-                        <!-- 동적으로 생성될 리뷰 옵션들 -->
-                    </select>
-                </div>
-                <div class="review-content">
-                    <h4>리뷰 내용</h4>
-                    <div id="reviewText" class="review-text">
-                        리뷰를 선택해주세요.
-                    </div>
-                </div>
-                <button id="generateBtn" class="btn btn--primary btn--full-width">
-                    답변 생성
-                </button>
-                <div id="loadingIndicator" class="loading hidden">
-                    <div class="loading-spinner"></div>
-                    <span>AI 답변을 생성하고 있습니다...</span>
-                </div>
-                <div class="generated-response">
-                    <h4>생성된 답변</h4>
-                    <div id="responseText" class="response-text"></div>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">피드백</label>
-                    <input type="text" id="feedbackInput" class="form-control" placeholder="답변에 반영할 피드백을 입력하세요" />
-                </div>
-                <div class="feedback-btn-group" style="display:flex; justify-content: flex-end; gap: 12px; margin-top: 12px;">
-                    <button id="regenerateBtn" class="btn btn-secondary" type="button">피드백 반영하여 다시 생성</button>
-                    <button id="saveStyleBtn" class="btn btn-primary" type="button">저장하기</button>
+            <div class="review-section">
+                <h3>샘플 긍정 리뷰</h3>
+                <div class="review-list" id="positiveReviewList"></div>
+                <div class="review-slider" id="positiveReviewSlider"></div>
+                <div class="answer-preview">
+                    <div id="positiveAnswerContent">답변 미리보기</div>
                 </div>
             </div>
         </div>
-        <!-- 보안 안내 -->
-        <div class="security-notice">
-            <p><strong>보안 안내:</strong> 현재 API 키가 클라이언트 사이드에서 사용되고 있습니다. 실제 운영 환경에서는 보안을 위해 서버 사이드에서 API를 처리하는 것을 권장합니다.</p>
+        <div class="main-right-panel">
+            <div class="style-section">
+                <h2>부정 리뷰 스타일 목록</h2>
+                <div class="style-list" id="negativeStyleList"></div>
+                <button class="add-style-btn" id="addNegativeStyleBtn">+ 신규 부정 스타일 생성</button>
+            </div>
+            <div class="review-section">
+                <h3>샘플 부정 리뷰</h3>
+                <div class="review-list" id="negativeReviewList"></div>
+                <div class="review-slider" id="negativeReviewSlider"></div>
+                <div class="answer-preview">
+                    <div id="negativeAnswerContent">답변 미리보기</div>
+                </div>
+            </div>
         </div>
     </div>
-
-    <script src="/static/app.js"></script>
+    <script src="/static/main.js"></script>
 </body>
 </html>

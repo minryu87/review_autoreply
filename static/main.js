@@ -1,24 +1,21 @@
 // 메인화면: 병원 선택, 스타일 목록, 리뷰/답변 미리보기, 스타일 상세 연동
 
-let styleListPositive = [];
-let styleListNegative = [];
-let reviewList = [];
-let activeStyleId = null;
-let currentReviewIdx = 0;
 let hospitalList = ["솔동물의료센터", "원진치과의원", "수지미래산부인과"];
 let selectedHospital = hospitalList[0];
-let isGenerating = false;
-let reviewTypeTab = 'positive';
-let positiveReviews = [];
-let negativeReviews = [];
 
-function getDefaultStyles() {
-  // 병원별 스타일 저장 구조를 서버에서 불러오도록 변경 필요
-  return [
-    { id: 'default1', name: '기본 스타일 1', active: true },
-    { id: 'default2', name: '기본 스타일 2', active: false },
-  ];
-}
+// 긍정/부정 각각의 상태
+let positive = {
+  styleList: [],
+  activeStyleId: null,
+  reviewList: [],
+  currentReviewIdx: 0
+};
+let negative = {
+  styleList: [],
+  activeStyleId: null,
+  reviewList: [],
+  currentReviewIdx: 0
+};
 
 function renderHospitalSelect() {
   const container = document.getElementById('hospitalSelectArea');
@@ -34,235 +31,41 @@ function renderHospitalSelect() {
   select.value = selectedHospital;
   select.onchange = function(e) {
     selectedHospital = e.target.value;
-    loadHospitalStylesAndReviews(selectedHospital);
+    loadAllData(selectedHospital);
   };
   container.appendChild(select);
 }
 
-function renderStyleTabs() {
-  const tabDiv = document.getElementById('reviewTypeTab');
-  tabDiv.innerHTML = '';
-  ['positive', 'negative'].forEach(type => {
-    const btn = document.createElement('button');
-    btn.textContent = type === 'positive' ? '긍정 리뷰 스타일 목록' : '부정 리뷰 스타일 목록';
-    btn.className = 'review-type-tab' + (reviewTypeTab === type ? ' active' : '');
-    btn.onclick = () => {
-      reviewTypeTab = type;
-      renderStyleList();
-    };
-    tabDiv.appendChild(btn);
-  });
-}
-
-function renderStyleList() {
-  renderStyleTabs();
-  const listDiv = document.getElementById('styleList');
+function renderStyleList(type) {
+  const listDiv = document.getElementById(type === 'positive' ? 'positiveStyleList' : 'negativeStyleList');
   listDiv.innerHTML = '';
-  const list = reviewTypeTab === 'positive' ? styleListPositive : styleListNegative;
-  list.forEach(style => {
+  const state = type === 'positive' ? positive : negative;
+  state.styleList.forEach(style => {
     const item = document.createElement('div');
-    item.className = 'style-item' + (style.active ? ' active' : '');
+    item.className = 'style-item' + (state.activeStyleId === style.id ? ' active' : '');
     const name = document.createElement('span');
     name.className = 'style-name';
     name.textContent = style.name;
-    const actions = document.createElement('span');
-    actions.className = 'style-actions';
-    // ON/OFF 버튼
-    const toggleBtn = document.createElement('button');
-    toggleBtn.textContent = style.active ? 'ON' : 'OFF';
-    toggleBtn.onclick = () => setActiveStyle(style.id);
-    // 수정 버튼
-    const editBtn = document.createElement('button');
-    editBtn.textContent = '수정';
-    editBtn.onclick = () => goToStyleDetail(style.id, reviewTypeTab);
-    // 이름 수정 버튼
-    const renameBtn = document.createElement('button');
-    renameBtn.textContent = '이름 수정';
-    renameBtn.onclick = async () => {
-      const newName = prompt('새 스타일 이름을 입력하세요', style.name);
-      if (newName && newName !== style.name) {
-        style.name = newName;
-        await saveHospitalStyles();
-        renderStyleList();
-      }
-    };
-    // 제거 버튼
-    const removeBtn = document.createElement('button');
-    removeBtn.textContent = '제거';
-    removeBtn.onclick = async () => {
-      if (confirm('정말 이 스타일을 삭제하시겠습니까?')) {
-        if (reviewTypeTab === 'positive') {
-          styleListPositive = styleListPositive.filter(s => s.id !== style.id);
-        } else {
-          styleListNegative = styleListNegative.filter(s => s.id !== style.id);
-        }
-        await saveHospitalStyles();
-        renderStyleList();
-      }
-    };
-    actions.appendChild(toggleBtn);
-    actions.appendChild(editBtn);
-    actions.appendChild(renameBtn);
-    actions.appendChild(removeBtn);
     item.appendChild(name);
-    item.appendChild(actions);
+    item.onclick = () => {
+      state.activeStyleId = style.id;
+      renderStyleList(type);
+      renderReviewSlider(type);
+      renderAnswerPreview(type);
+    };
     listDiv.appendChild(item);
   });
 }
 
-async function loadHospitalStyles(hospital) {
-  const res = await fetch(`/hospital_styles?hospital=${encodeURIComponent(hospital)}`);
-  if (res.ok) {
-    const data = await res.json();
-    styleListPositive = (data.styles || []).filter(s => s.positive && Object.keys(s.positive).length > 0).map(s => ({...s, ...s.positive, reviewType: 'positive'}));
-    styleListNegative = (data.styles || []).filter(s => s.negative && Object.keys(s.negative).length > 0).map(s => ({...s, ...s.negative, reviewType: 'negative'}));
-    renderStyleList();
-    renderAnswerPreview();
-  }
-}
-
-async function saveHospitalStyles() {
-  await fetch('/hospital_styles', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ hospital: selectedHospital, styles: styleListPositive.concat(styleListNegative) })
-  });
-}
-
-function setActiveStyle(id) {
-  if (reviewTypeTab === 'positive') {
-    styleListPositive.forEach(s => s.active = (s.id === id));
-    activeStyleId = id;
-  } else {
-    styleListNegative.forEach(s => s.active = (s.id === id));
-    activeStyleId = id;
-  }
-  saveHospitalStyles();
-  renderStyleList();
-  renderAnswerPreview();
-}
-
-function goToStyleDetail(id, reviewType) {
-  const list = reviewType === 'positive' ? styleListPositive : styleListNegative;
-  const style = list.find(s => s.id === id);
-  const styleName = style ? style.name : '';
-  window.location.href = `/style_detail/${id}?hospital=${encodeURIComponent(selectedHospital)}&styleName=${encodeURIComponent(styleName)}&reviewType=${reviewType}`;
-}
-
-// 리뷰/답변 미리보기
-function renderReviewDropdown() {
-  const dropdown = document.getElementById('reviewDropdown');
-  dropdown.innerHTML = '';
-  reviewList.forEach((r, i) => {
-    const opt = document.createElement('option');
-    opt.value = i;
-    opt.textContent = `리뷰 ${i+1}`;
-    dropdown.appendChild(opt);
-  });
-  dropdown.value = currentReviewIdx;
-}
-
-function renderReviewContent() {
-  const contentDiv = document.getElementById('reviewContent');
-  if (reviewList.length > 0) {
-    contentDiv.textContent = reviewList[currentReviewIdx].content;
-  } else {
-    contentDiv.textContent = '리뷰 없음';
-  }
-}
-
-function renderAnswerPreview() {
-  const answerDiv = document.getElementById('answerContent');
-  if (!activeStyleId || reviewList.length === 0) {
-    answerDiv.textContent = '답변 미리보기';
-    return;
-  }
-  // 임시: 스타일명 + 리뷰내용 조합
-  const style = styleListPositive.find(s => s.id === activeStyleId) || styleListNegative.find(s => s.id === activeStyleId);
-  const review = reviewList[currentReviewIdx];
-  answerDiv.textContent = `[${style.name}] ${review.content} 에 대한 답변 예시`;
-}
-
-async function generateAnswerWithActiveStyle() {
-  if (isGenerating) return;
-  const answerDiv = document.getElementById('answerContent');
-  const style = styleListPositive.find(s => s.id === activeStyleId) || styleListNegative.find(s => s.id === activeStyleId);
-  const review = reviewList[currentReviewIdx];
-  if (!style || !review) {
-    answerDiv.textContent = '답변 미리보기';
-    return;
-  }
-  isGenerating = true;
-  answerDiv.innerHTML = '<span class="loading-spinner"></span> 답변 생성 중...';
-  try {
-    const res = await fetch('/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        review_content: review.content,
-        settings: style.settings || {},
-        review_type: review.type,
-        hospital: selectedHospital,
-        answer_length: 'medium', // 필요시 스타일에 따라 변경
-        additional_content: '',
-        feedback: '',
-        last_answer: '',
-        review_id: review.id
-      })
-    });
-    const data = await res.json();
-    if (data.result) {
-      answerDiv.textContent = data.result;
-    } else {
-      answerDiv.textContent = data.error || '답변 생성 중 오류가 발생했습니다.';
-    }
-  } catch (e) {
-    answerDiv.textContent = '답변 생성 중 오류가 발생했습니다.';
-  } finally {
-    isGenerating = false;
-  }
-}
-
-async function loadHospitalReviews(hospital) {
-  // 긍정 리뷰
-  const posRes = await fetch(`/hospital_reviews?hospital=${encodeURIComponent(hospital)}&type=positive`);
-  positiveReviews = (await posRes.json()).reviews || [];
-  // 부정 리뷰
-  const negRes = await fetch(`/hospital_reviews?hospital=${encodeURIComponent(hospital)}&type=negative`);
-  negativeReviews = (await negRes.json()).reviews || [];
-  // 기본값: 긍정
-  reviewTypeTab = 'positive';
-  reviewList = positiveReviews;
-  currentReviewIdx = 0;
-  renderReviewTab();
-  renderReviewSlider();
-}
-
-function renderReviewTab() {
-  const tabDiv = document.getElementById('reviewTypeTab');
-  if (!tabDiv) return;
-  tabDiv.innerHTML = '';
-  const posBtn = document.createElement('button');
-  posBtn.textContent = '긍정 리뷰';
-  posBtn.className = 'btn btn--secondary' + (reviewTypeTab === 'positive' ? ' active' : '');
-  posBtn.onclick = () => { reviewTypeTab = 'positive'; reviewList = positiveReviews; currentReviewIdx = 0; renderReviewTab(); renderReviewSlider(); };
-  const negBtn = document.createElement('button');
-  negBtn.textContent = '부정 리뷰';
-  negBtn.className = 'btn btn--secondary' + (reviewTypeTab === 'negative' ? ' active' : '');
-  negBtn.onclick = () => { reviewTypeTab = 'negative'; reviewList = negativeReviews; currentReviewIdx = 0; renderReviewTab(); renderReviewSlider(); };
-  tabDiv.appendChild(posBtn);
-  tabDiv.appendChild(negBtn);
-}
-
-function renderReviewSlider() {
-  const sliderDiv = document.getElementById('reviewSlider');
-  if (!sliderDiv) return;
+function renderReviewSlider(type) {
+  const sliderDiv = document.getElementById(type === 'positive' ? 'positiveReviewSlider' : 'negativeReviewSlider');
   sliderDiv.innerHTML = '';
-  if (reviewList.length === 0) {
+  const state = type === 'positive' ? positive : negative;
+  if (state.reviewList.length === 0) {
     sliderDiv.textContent = '리뷰가 없습니다.';
     return;
   }
-  const review = reviewList[currentReviewIdx];
+  const review = state.reviewList[state.currentReviewIdx];
   const card = document.createElement('div');
   card.className = 'review-card';
   card.innerHTML = `<div style="font-size:15px; margin-bottom:8px;">${review.content}</div>
@@ -274,12 +77,12 @@ function renderReviewSlider() {
   navDiv.style.textAlign = 'center';
   const prevBtn = document.createElement('button');
   prevBtn.textContent = '←';
-  prevBtn.onclick = () => { currentReviewIdx = (currentReviewIdx - 1 + reviewList.length) % reviewList.length; renderReviewSlider(); };
+  prevBtn.onclick = () => { state.currentReviewIdx = (state.currentReviewIdx - 1 + state.reviewList.length) % state.reviewList.length; renderReviewSlider(type); };
   const nextBtn = document.createElement('button');
   nextBtn.textContent = '→';
-  nextBtn.onclick = () => { currentReviewIdx = (currentReviewIdx + 1) % reviewList.length; renderReviewSlider(); };
+  nextBtn.onclick = () => { state.currentReviewIdx = (state.currentReviewIdx + 1) % state.reviewList.length; renderReviewSlider(type); };
   navDiv.appendChild(prevBtn);
-  navDiv.appendChild(document.createTextNode(` ${currentReviewIdx+1} / ${reviewList.length} `));
+  navDiv.appendChild(document.createTextNode(` ${state.currentReviewIdx+1} / ${state.reviewList.length} `));
   navDiv.appendChild(nextBtn);
   sliderDiv.appendChild(navDiv);
   // 답변 생성 버튼
@@ -287,19 +90,30 @@ function renderReviewSlider() {
   answerBtn.textContent = '이 리뷰로 답변 생성';
   answerBtn.className = 'btn btn--primary btn--full-width';
   answerBtn.style.marginTop = '12px';
-  answerBtn.onclick = () => generateAnswerWithActiveStyleForReview(review);
+  answerBtn.onclick = () => generateAnswerWithActiveStyleForReview(type, review);
   sliderDiv.appendChild(answerBtn);
 }
 
-async function generateAnswerWithActiveStyleForReview(review) {
-  if (isGenerating) return;
-  const answerDiv = document.getElementById('answerContent');
-  const style = styleListPositive.find(s => s.id === activeStyleId) || styleListNegative.find(s => s.id === activeStyleId);
+function renderAnswerPreview(type) {
+  const answerDiv = document.getElementById(type === 'positive' ? 'positiveAnswerContent' : 'negativeAnswerContent');
+  const state = type === 'positive' ? positive : negative;
+  if (!state.activeStyleId || state.reviewList.length === 0) {
+    answerDiv.textContent = '답변 미리보기';
+    return;
+  }
+  const style = state.styleList.find(s => s.id === state.activeStyleId);
+  const review = state.reviewList[state.currentReviewIdx];
+  answerDiv.textContent = `[${style.name}] ${review.content} 에 대한 답변 예시`;
+}
+
+async function generateAnswerWithActiveStyleForReview(type, review) {
+  const answerDiv = document.getElementById(type === 'positive' ? 'positiveAnswerContent' : 'negativeAnswerContent');
+  const state = type === 'positive' ? positive : negative;
+  const style = state.styleList.find(s => s.id === state.activeStyleId);
   if (!style || !review) {
     answerDiv.textContent = '답변 미리보기';
     return;
   }
-  isGenerating = true;
   answerDiv.innerHTML = '<span class="loading-spinner"></span> 답변 생성 중...';
   try {
     const res = await fetch('/generate', {
@@ -308,7 +122,7 @@ async function generateAnswerWithActiveStyleForReview(review) {
       body: JSON.stringify({
         review_content: review.content,
         settings: style.settings || {},
-        review_type: reviewTypeTab,
+        review_type: type,
         hospital: selectedHospital,
         answer_length: style.answerLength || 'medium',
         additional_content: style.additionalContent || '',
@@ -325,41 +139,123 @@ async function generateAnswerWithActiveStyleForReview(review) {
     }
   } catch (e) {
     answerDiv.textContent = '답변 생성 중 오류가 발생했습니다.';
-  } finally {
-    isGenerating = false;
   }
 }
 
-// 병원 선택 시 리뷰/스타일 모두 불러오기
-async function loadHospitalStylesAndReviews(hospital) {
-  await loadHospitalStyles(hospital);
-  await loadHospitalReviews(hospital);
+async function loadStyles(type) {
+  const res = await fetch(`/hospital_styles?hospital=${encodeURIComponent(selectedHospital)}&review_type=${type}`);
+  if (res.ok) {
+    const data = await res.json();
+    const list = (data.styles || []).map(s => ({...s, ...s[type]}));
+    if (type === 'positive') positive.styleList = list;
+    else negative.styleList = list;
+  }
 }
 
-// 초기 데이터 로딩
-function initializeMain() {
-  console.log('initializeMain 실행');
-  renderHospitalSelect();
-  loadHospitalStylesAndReviews(selectedHospital);
-  const btn = document.getElementById('addStyleBtn');
-  console.log('addStyleBtn:', btn);
-  if (btn) {
-    btn.onclick = async function() {
-      const name = prompt('새 스타일 이름을 입력하세요');
-      if (name) {
-        const newId = 'user_' + Date.now();
-        if (reviewTypeTab === 'positive') {
-          styleListPositive.push({ id: newId, name, active: false, settings: {} });
-        } else {
-          styleListNegative.push({ id: newId, name, active: false, settings: {} });
+async function loadReviews(type) {
+  const res = await fetch(`/hospital_reviews?hospital=${encodeURIComponent(selectedHospital)}&type=${type}`);
+  if (res.ok) {
+    const data = await res.json();
+    if (type === 'positive') positive.reviewList = data.reviews || [];
+    else negative.reviewList = data.reviews || [];
+  }
+}
+
+async function loadAllData(hospital) {
+  await Promise.all([
+    loadStyles('positive'),
+    loadStyles('negative'),
+    loadReviews('positive'),
+    loadReviews('negative')
+  ]);
+  // 초기 선택
+  if (positive.styleList.length > 0) positive.activeStyleId = positive.styleList[0].id;
+  if (negative.styleList.length > 0) negative.activeStyleId = negative.styleList[0].id;
+  positive.currentReviewIdx = 0;
+  negative.currentReviewIdx = 0;
+  renderStyleList('positive');
+  renderStyleList('negative');
+  renderReviewSlider('positive');
+  renderReviewSlider('negative');
+  renderAnswerPreview('positive');
+  renderAnswerPreview('negative');
+}
+
+function setupAddStyleBtns() {
+  document.getElementById('addPositiveStyleBtn').onclick = async function() {
+    const name = prompt('새 긍정 스타일 이름을 입력하세요');
+    if (name) {
+      const newId = 'user_' + Date.now();
+      positive.styleList.push({ id: newId, name, active: false, settings: {} });
+      await saveAllStyles();
+      renderStyleList('positive');
+    }
+  };
+  document.getElementById('addNegativeStyleBtn').onclick = async function() {
+    const name = prompt('새 부정 스타일 이름을 입력하세요');
+    if (name) {
+      const newId = 'user_' + Date.now();
+      negative.styleList.push({ id: newId, name, active: false, settings: {} });
+      await saveAllStyles();
+      renderStyleList('negative');
+    }
+  };
+}
+
+async function saveAllStyles() {
+  // 병원 전체 스타일을 긍정/부정 합쳐서 저장
+  const styles = [];
+  positive.styleList.forEach(s => {
+    styles.push({
+      id: s.id,
+      name: s.name,
+      active: s.active,
+      positive: {
+        settings: s.settings || {},
+        answerLength: s.answerLength || 'medium',
+        additionalContent: s.additionalContent || '',
+        feedback: s.feedback || '',
+        lastAnswer: s.lastAnswer || ''
+      },
+      negative: {}
+    });
+  });
+  negative.styleList.forEach(s => {
+    // 이미 styles에 id/name이 있으면 negative만 채움
+    let found = styles.find(st => st.id === s.id && st.name === s.name);
+    if (found) {
+      found.negative = {
+        settings: s.settings || {},
+        answerLength: s.answerLength || 'medium',
+        additionalContent: s.additionalContent || '',
+        feedback: s.feedback || '',
+        lastAnswer: s.lastAnswer || ''
+      };
+    } else {
+      styles.push({
+        id: s.id,
+        name: s.name,
+        active: s.active,
+        positive: {},
+        negative: {
+          settings: s.settings || {},
+          answerLength: s.answerLength || 'medium',
+          additionalContent: s.additionalContent || '',
+          feedback: s.feedback || '',
+          lastAnswer: s.lastAnswer || ''
         }
-        await saveHospitalStyles();
-        renderStyleList();
-      }
-    };
-  } else {
-    alert('addStyleBtn이 DOM에 없습니다! main.html 구조를 확인하세요.');
-  }
+      });
+    }
+  });
+  await fetch('/hospital_styles', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ hospital: selectedHospital, styles })
+  });
 }
 
-document.addEventListener('DOMContentLoaded', initializeMain);
+document.addEventListener('DOMContentLoaded', () => {
+  renderHospitalSelect();
+  loadAllData(selectedHospital);
+  setupAddStyleBtns();
+});
