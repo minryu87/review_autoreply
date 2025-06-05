@@ -107,8 +107,7 @@ def main():
 
 @app.route("/style_detail/<style_id>")
 def style_detail(style_id):
-    # 임시: 기존 index.html을 재활용 (추후 별도 템플릿 분리 가능)
-    return send_from_directory('.', 'index.html')
+    return send_from_directory('/app', 'style_detail.html')
 
 @app.route("/static/<path:filename>")
 def static_files(filename):
