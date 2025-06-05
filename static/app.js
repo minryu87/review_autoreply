@@ -6,6 +6,7 @@ let lastGeneratedAnswer = '';
 let lastReviewId = '';
 let selectedHospital = '';
 let sampleReviews = [];
+let styleName = '';
 
 // 슬라이더 생성 함수
 function createSliderElement(setting, type) {
@@ -308,7 +309,7 @@ async function initializeApp() {
 
   // 병원명/스타일명 표시 및 변수 저장
   const hospital = getQueryParam('hospital');
-  const styleName = getQueryParam('styleName');
+  styleName = getQueryParam('styleName');
   const reviewType = getQueryParam('reviewType') || 'positive';
   if (hospital) {
     document.getElementById('selectedHospitalName').textContent = hospital;
