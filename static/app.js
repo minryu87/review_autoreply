@@ -165,6 +165,26 @@ function getSelectedSettings() {
   return settings;
 }
 
+// 'On'인 스타일의 데이터(positive/negative)에서 settings, answerLength, additionalContent, feedback, lastAnswer 모두 추출
+async function getActiveStyleData(hospital, reviewType) {
+  const res = await fetch(`/hospital_styles?hospital=${encodeURIComponent(hospital)}&review_type=${reviewType}`);
+  if (res.ok) {
+    const data = await res.json();
+    const activeStyle = (data.styles || []).find(s => s.active);
+    if (activeStyle && activeStyle[reviewType]) {
+      return activeStyle[reviewType]; // settings, answerLength, additionalContent, feedback, lastAnswer 등 포함
+    }
+  }
+  // 기본값 반환
+  return {
+    settings: {},
+    answerLength: 'medium',
+    additionalContent: '',
+    feedback: '',
+    lastAnswer: ''
+  };
+}
+
 async function handleGenerateResponse(isRegenerate = false) {
   if (!sampleReviewSelect || !generateBtn || !loadingIndicator || !responseTextDiv) return;
   const selectedReviewId = sampleReviewSelect.value;
@@ -182,20 +202,14 @@ async function handleGenerateResponse(isRegenerate = false) {
     alert('선택된 리뷰 타입과 설정 타입이 일치하지 않습니다.');
     return;
   }
-  const settings = getSelectedSettings();
-  const hospital = selectedHospital;
-  const answerLength = answerLengthSelect.value;
-  const additionalContent = additionalContentInput.value;
-  // 누적 피드백(placeholder)과 입력 피드백을 합쳐서 전송
-  let feedback = feedbackInput.value.trim();
-  let feedbackHistory = feedbackInput.placeholder.replace(/^이 병원 누적 피드백: /, '').replace(/\s*\/\s*/g, '\n').trim();
-  if (feedback && feedbackHistory) {
-    // 중복 없이 합치기
-    const all = (feedback + '\n' + feedbackHistory).split(/\n+/).map(s => s.trim()).filter(Boolean);
-    feedback = Array.from(new Set(all)).join('\n');
-  } else if (feedbackHistory) {
-    feedback = feedbackHistory;
-  }
+  // 'On'인 스타일 데이터에서 값 추출
+  const styleData = await getActiveStyleData(selectedHospital, reviewType);
+  const settings = styleData.settings || {};
+  const answerLength = styleData.answerLength || 'medium';
+  const additionalContent = styleData.additionalContent || '';
+  const feedback = styleData.feedback || '';
+  const lastAnswer = styleData.lastAnswer || '';
+
   // UI 업데이트
   generateBtn.disabled = true;
   generateBtn.textContent = '생성 중...';
@@ -209,11 +223,11 @@ async function handleGenerateResponse(isRegenerate = false) {
         review_content: selectedReview.content,
         settings: settings,
         review_type: reviewType,
-        hospital: hospital,
+        hospital: selectedHospital,
         answer_length: answerLength,
         additional_content: additionalContent,
         feedback: isRegenerate ? feedback : feedback,
-        last_answer: isRegenerate ? lastGeneratedAnswer : '',
+        last_answer: isRegenerate ? lastGeneratedAnswer : lastAnswer,
         review_id: selectedReview.id
       })
     });
@@ -228,7 +242,7 @@ async function handleGenerateResponse(isRegenerate = false) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           session_id: window.sessionStorage.getItem('session_id') || '',
-          hospital: hospital,
+          hospital: selectedHospital,
           page_type: 'detail',
           style_name: styleName,
           settings: settings,
