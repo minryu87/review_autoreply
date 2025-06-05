@@ -89,11 +89,10 @@ function renderNegativeSettings() {
 function renderSampleReviews() {
   if (!sampleReviewSelect) return;
   sampleReviewSelect.innerHTML = '<option value="">리뷰를 선택해주세요</option>';
-  const filteredReviews = appData.sample_reviews ? appData.sample_reviews.filter(review => review.type === reviewType) : [];
-  filteredReviews.forEach((review, index) => {
+  sampleReviews.forEach((review, index) => {
     const option = document.createElement('option');
     option.value = review.id;
-    option.textContent = `${review.type === 'positive' ? '긍정' : '부정'} 리뷰 ${index + 1}`;
+    option.textContent = review.content.slice(0, 40) + (review.content.length > 40 ? '...' : '');
     sampleReviewSelect.appendChild(option);
   });
 }
