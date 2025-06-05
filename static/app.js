@@ -178,7 +178,6 @@ async function handleGenerateResponse(isRegenerate = false) {
     alert('선택된 리뷰를 찾을 수 없습니다.');
     return;
   }
-  const reviewType = reviewType;
   if (selectedReview.type && selectedReview.type !== reviewType) {
     alert('선택된 리뷰 타입과 설정 타입이 일치하지 않습니다.');
     return;
