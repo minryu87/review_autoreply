@@ -103,7 +103,7 @@ def get_review_cache_path(hospital, review_type):
 
 @app.route("/")
 def main():
-    return render_template("main.html")
+    return send_from_directory('/app', 'index.html')
 
 @app.route("/style_detail/<style_id>")
 def style_detail(style_id):
