@@ -1,6 +1,7 @@
 // 서버에서 설정 및 샘플 리뷰를 받아옴
 let appData = {};
-let reviewTypeSelect, positiveSettingsDiv, negativeSettingsDiv, sampleReviewSelect, reviewTextDiv, generateBtn, loadingIndicator, responseTextDiv;
+let reviewType = 'positive'; // 전역 선언
+let reviewTypeDisplay, positiveSettingsDiv, negativeSettingsDiv, sampleReviewSelect, reviewTextDiv, generateBtn, loadingIndicator, responseTextDiv;
 let answerLengthSelect, additionalContentInput, feedbackInput, regenerateBtn;
 let lastGeneratedAnswer = '';
 let lastReviewId = '';
@@ -9,7 +10,6 @@ let sampleReviews = [];
 let styleName = '';
 
 // 리뷰 타입 표시용 변수 추가
-let reviewTypeDisplay;
 
 // 슬라이더 생성 함수
 function createSliderElement(setting, type) {
@@ -63,6 +63,7 @@ function createSliderElement(setting, type) {
 function renderSettings() {
   renderPositiveSettings();
   renderNegativeSettings();
+  updateSettingsVisibility();
 }
 
 function renderPositiveSettings() {
@@ -88,8 +89,7 @@ function renderNegativeSettings() {
 function renderSampleReviews() {
   if (!sampleReviewSelect) return;
   sampleReviewSelect.innerHTML = '<option value="">리뷰를 선택해주세요</option>';
-  const currentType = reviewTypeSelect.value;
-  const filteredReviews = appData.sample_reviews.filter(review => review.type === currentType);
+  const filteredReviews = appData.sample_reviews ? appData.sample_reviews.filter(review => review.type === reviewType) : [];
   filteredReviews.forEach((review, index) => {
     const option = document.createElement('option');
     option.value = review.id;
@@ -110,8 +110,7 @@ function updateUI() {
 }
 
 function updateSettingsVisibility() {
-  if (!reviewTypeSelect || !positiveSettingsDiv || !negativeSettingsDiv) return;
-  const reviewType = reviewTypeSelect.value;
+  if (!positiveSettingsDiv || !negativeSettingsDiv) return;
   if (reviewType === 'positive') {
     positiveSettingsDiv.classList.remove('hidden');
     negativeSettingsDiv.classList.add('hidden');
@@ -154,7 +153,6 @@ function handleSampleReviewChange() {
 }
 
 function getSelectedSettings() {
-  const reviewType = reviewTypeSelect.value;
   const settings = {};
   const settingsData = reviewType === 'positive' ? appData.positive_settings : appData.negative_settings;
   settingsData.forEach(setting => {
@@ -180,7 +178,7 @@ async function handleGenerateResponse(isRegenerate = false) {
     alert('선택된 리뷰를 찾을 수 없습니다.');
     return;
   }
-  const reviewType = reviewTypeSelect.value;
+  const reviewType = reviewType;
   if (selectedReview.type && selectedReview.type !== reviewType) {
     alert('선택된 리뷰 타입과 설정 타입이 일치하지 않습니다.');
     return;
@@ -258,7 +256,6 @@ async function loadHospitalData(hospital) {
     // 옵션/피드백/답변/피드백 히스토리 불러오기
     // 1. 옵션값을 슬라이더에 반영
     if (data.options) {
-      const reviewType = reviewTypeSelect.value;
       const settingsData = reviewType === 'positive' ? appData.positive_settings : appData.negative_settings;
       settingsData.forEach(setting => {
         const slider = document.getElementById(`${reviewType}_setting_${setting.id}`);
@@ -297,7 +294,6 @@ function getQueryParam(name) {
 
 // 초기화
 async function initializeApp() {
-  reviewTypeSelect = null; // 드롭다운 제거
   reviewTypeDisplay = document.getElementById('reviewTypeDisplay');
   positiveSettingsDiv = document.getElementById('positiveSettings');
   negativeSettingsDiv = document.getElementById('negativeSettings');
@@ -314,7 +310,7 @@ async function initializeApp() {
   // 병원명/스타일명 표시 및 변수 저장
   const hospital = getQueryParam('hospital');
   styleName = getQueryParam('styleName');
-  const reviewType = getQueryParam('reviewType') || 'positive';
+  reviewType = getQueryParam('reviewType') || 'positive';
   if (hospital) {
     document.getElementById('selectedHospitalName').textContent = hospital;
     selectedHospital = hospital;
@@ -374,7 +370,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function setupEventListeners() {
-  reviewTypeSelect.addEventListener('change', handleReviewTypeChange);
+  reviewTypeDisplay.addEventListener('change', handleReviewTypeChange);
   sampleReviewSelect.addEventListener('change', handleSampleReviewChange);
   generateBtn.addEventListener('click', () => handleGenerateResponse(false));
   regenerateBtn.addEventListener('click', () => handleGenerateResponse(true));
@@ -386,7 +382,6 @@ function setupEventListeners() {
 }
 
 async function handleSaveStyle() {
-  const reviewType = getQueryParam('reviewType') || 'positive';
   const settings = getSelectedSettings();
   const answerLength = answerLengthSelect.value;
   const additionalContent = additionalContentInput.value;
