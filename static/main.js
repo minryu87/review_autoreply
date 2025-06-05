@@ -43,10 +43,51 @@ function renderStyleList(type) {
   state.styleList.forEach(style => {
     const item = document.createElement('div');
     item.className = 'style-item' + (state.activeStyleId === style.id ? ' active' : '');
+
     const name = document.createElement('span');
     name.className = 'style-name';
     name.textContent = style.name;
     item.appendChild(name);
+
+    // ON/OFF 버튼
+    const toggleBtn = document.createElement('button');
+    toggleBtn.textContent = state.activeStyleId === style.id ? 'ON' : 'OFF';
+    toggleBtn.onclick = (e) => {
+      e.stopPropagation();
+      state.activeStyleId = style.id;
+      renderStyleList(type);
+      renderReviewSlider(type);
+      renderAnswerPreview(type);
+    };
+    item.appendChild(toggleBtn);
+
+    // 이름 수정 버튼
+    const renameBtn = document.createElement('button');
+    renameBtn.textContent = '이름 수정';
+    renameBtn.onclick = async (e) => {
+      e.stopPropagation();
+      const newName = prompt('새 스타일 이름을 입력하세요', style.name);
+      if (newName && newName !== style.name) {
+        style.name = newName;
+        await saveAllStyles();
+        renderStyleList(type);
+      }
+    };
+    item.appendChild(renameBtn);
+
+    // 삭제 버튼
+    const removeBtn = document.createElement('button');
+    removeBtn.textContent = '삭제';
+    removeBtn.onclick = async (e) => {
+      e.stopPropagation();
+      if (confirm('정말 이 스타일을 삭제하시겠습니까?')) {
+        state.styleList = state.styleList.filter(s => s.id !== style.id);
+        await saveAllStyles();
+        renderStyleList(type);
+      }
+    };
+    item.appendChild(removeBtn);
+
     item.onclick = () => {
       state.activeStyleId = style.id;
       renderStyleList(type);
