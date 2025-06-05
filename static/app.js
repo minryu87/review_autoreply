@@ -184,6 +184,11 @@ async function getActiveStyleData(hospital, reviewType) {
   };
 }
 
+function isDetailPage() {
+  // style_detail.html에서만 존재하는 특정 요소로 판별 (예: saveStyleBtn)
+  return !!document.getElementById('saveStyleBtn');
+}
+
 async function handleGenerateResponse(isRegenerate = false) {
   if (!sampleReviewSelect || !generateBtn || !loadingIndicator || !responseTextDiv) return;
   const selectedReviewId = sampleReviewSelect.value;
@@ -201,13 +206,24 @@ async function handleGenerateResponse(isRegenerate = false) {
     alert('선택된 리뷰 타입과 설정 타입이 일치하지 않습니다.');
     return;
   }
-  // 'On'인 스타일 데이터에서 값 추출
-  const styleData = await getActiveStyleData(selectedHospital, reviewType);
-  const settings = styleData.settings || {};
-  const answerLength = styleData.answerLength || 'medium';
-  const additionalContent = styleData.additionalContent || '';
-  const feedback = styleData.feedback || '';
-  const lastAnswer = styleData.lastAnswer || '';
+  // 상세/메인 화면 분기: 입력값 vs On 스타일 값
+  let settings, answerLength, additionalContent, feedback, lastAnswer;
+  if (isDetailPage()) {
+    // 상세 화면: 입력값 사용
+    settings = getSelectedSettings();
+    answerLength = answerLengthSelect.value;
+    additionalContent = additionalContentInput.value;
+    feedback = feedbackInput.value;
+    lastAnswer = responseTextDiv.textContent;
+  } else {
+    // 메인 화면: On인 스타일 값 사용
+    const styleData = await getActiveStyleData(selectedHospital, reviewType);
+    settings = styleData.settings || {};
+    answerLength = styleData.answerLength || 'medium';
+    additionalContent = styleData.additionalContent || '';
+    feedback = styleData.feedback || '';
+    lastAnswer = styleData.lastAnswer || '';
+  }
 
   // UI 업데이트
   generateBtn.disabled = true;
