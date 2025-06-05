@@ -167,6 +167,21 @@ async function generateAnswerWithActiveStyleForReview(type, review) {
     answerDiv.textContent = '답변 미리보기';
     return;
   }
+  // 진단용 로그
+  console.log('답변 생성용 스타일:', style);
+  console.log('settings:', style.settings);
+
+  // settings가 비어있으면, 스타일의 type별 속성에서 settings를 찾아본다
+  let settings = style.settings;
+  if (!settings || Object.keys(settings).length === 0) {
+    if (type === 'positive' && style.positive && style.positive.settings) {
+      settings = style.positive.settings;
+    } else if (type === 'negative' && style.negative && style.negative.settings) {
+      settings = style.negative.settings;
+    }
+  }
+  if (!settings) settings = {};
+
   answerDiv.innerHTML = '<span class="loading-spinner"></span> 답변 생성 중...';
   try {
     const res = await fetch('/generate', {
@@ -174,7 +189,7 @@ async function generateAnswerWithActiveStyleForReview(type, review) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         review_content: review.content,
-        settings: style.settings || {},
+        settings: settings,
         review_type: type,
         hospital: selectedHospital,
         answer_length: style.answerLength || 'medium',
